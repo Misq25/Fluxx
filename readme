@@ -1,0 +1,61 @@
+backend/
+├── config/
+│   └── config.go              (Chargement des variables d’environnement, configs globales)
+├── controllers/
+│   └── auth.go                (Gère les requêtes liées à l’authentification : login, register)
+│   └── message.go             (Gère les requêtes liées aux messages : envoi, lecture)
+├── models/
+│   └── user.go                (Définit la structure de l'utilisateur + méthodes associées)
+│   └── message.go             (Structure des messages, ex : contenu, auteur, timestamp)
+├── routes/
+│   └── routes.go              (Déclaration des routes HTTP, liaison avec les contrôleurs)
+├── services/
+│   └── authService.go         (Contient la logique métier liée à l’auth : hash, vérif, token)
+│   └── messageService.go      (Logique métier pour envoyer, récupérer, formater les messages)
+├── ws/
+│   └── chat.go                (Serveur WebSocket : connexion, émission et réception des messages en temps réel)
+├── utils/
+│   └── hash.go                (Fonctions pour hasher les mots de passe et vérifier le hash)
+│   └── jwt.go                 (Création, parsing, validation des tokens JWT)
+├── database/
+│   └── postgres.go            (Connexion et gestion de la base de données PostgreSQL)
+└── main.go                    (Point d’entrée : init config, DB, routes, WebSocket, lancement du serveur)
+
+
+##################################################################################################################################################
+
+
+frontend/
+├── components/
+│   └── MessageList.tsx        (Affiche la liste des messages d’un salon de chat)
+│   └── MessageInput.tsx       (Zone de saisie pour écrire et envoyer un message)
+│   └── Sidebar.tsx            (Menu latéral avec serveurs, salons, navigation)
+│   └── UserAvatar.tsx         (Composant d'affichage de l'avatar d’un utilisateur)
+├── pages/
+│   └── index.tsx              (Page d’accueil / redirection selon statut connecté)
+│   └── login.tsx              (Page de connexion utilisateur)
+│   └── register.tsx           (Page de création de compte)
+│   └── chat.tsx               (Interface principale du chat après connexion)
+│   └── profile.tsx            (Page de gestion du profil utilisateur)
+├── services/
+│   └── api.ts                 (Fonctions générales pour appeler l’API avec axios/fetch)
+│   └── auth.ts                (Fonctions spécifiques à l’auth : login, register, logout)
+│   └── chat.ts                (Appels liés au chat : récupération, envoi de messages)
+├── hooks/
+│   └── useWebSocket.ts        (Hook personnalisé pour gérer une connexion WebSocket)
+│   └── useAuth.ts             (Hook pour vérifier et suivre l’état de connexion)
+├── styles/
+│   └── globals.css            (CSS global de l’application ou import Tailwind)
+│   └── tailwind.config.js     (Configuration personnalisée de Tailwind CSS)
+├── public/
+│   └── logo.png               (Logo de l’application visible publiquement)
+│   └── favicon.ico            (Icône de l’onglet navigateur)
+└── assets/
+    ├── images/
+    │   └── logo.png           (Images supplémentaires pour le branding)
+    └── icons/
+        └── user-avatar.png    (Icônes statiques pour avatars, UI, etc.)
+
+
+
+
