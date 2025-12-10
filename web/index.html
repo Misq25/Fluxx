@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Fluxx - Test WebSocket</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        #messages { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; }
+        .message-box { padding: 8px; margin-bottom: 5px; border-radius: 5px; }
+        /* Style simple pour distinguer nos messages des messages reçus */
+        .sent { background-color: #d1e7dd; text-align: right; }
+        .received { background-color: #f8d7da; text-align: left; }
+    </style>
+</head>
+<body>
+
+    <h2>Fluxx - Test Chat WebSocket</h2>
+    <p>Statut : <span id="status" style="color: red;">Déconnecté</span></p>
+
+    <div id="messages"></div>
+
+    <input type="text" id="input" placeholder="Tapez votre message ici..." style="width: 80%;">
+    <button onclick="sendMessage()">Envoyer</button>
+
+    <script>
+        const socket = new WebSocket("ws://localhost:8080/ws");
+        const statusElement = document.getElementById("status");
+        const messagesElement = document.getElementById("messages");
+        const inputElement = document.getElementById("input");
+
+        // Stocker l'ID de cette session (pour différencier nos messages)
+        let mySessionID = null;
+
+        // --- Gestion des Événements WebSocket ---
+
+        socket.onopen = function(e) {
+            statusElement.textContent = "Connecté";
+            statusElement.style.color = "green";
+            displayMessage("Système", "Connecté au serveur Go ! 🎉", "received");
+        };
+
+        socket.onmessage = function(event) {
+            try {
+                // 1. Parser le JSON reçu
+                const message = JSON.parse(event.data);
+
+                // Pour la démo, on stocke l'ID unique que le serveur a généré lors du premier message
+                if (!mySessionID) {
+                    mySessionID = message.sender;
+                    console.log("Mon ID de session est : " + mySessionID);
+                }
+
+                // 2. Déterminer le style (Envoyé ou Reçu)
+                const isSent = message.sender === mySessionID;
+                const className = isSent ? "sent" : "received";
+                
+                // 3. Afficher
+                const senderDisplay = isSent ? "Moi" : `Utilisateur ${message.sender.substring(0, 4)}...`;
+                displayMessage(senderDisplay, message.content, className);
+
+            } catch (e) {
+                console.error("Erreur de parsing JSON:", e);
+                displayMessage("Erreur", "Format de message invalide reçu.", "received");
+            }
+        };
+
+        socket.onclose = function(event) {
+            // ... (gestion de la déconnexion inchangée)
+            statusElement.textContent = "Déconnecté";
+            statusElement.style.color = "red";
+        };
+
+        socket.onerror = function(error) {
+            console.error(`[error] ${error.message}`);
+            displayMessage("Erreur", "Une erreur est survenue.", "received");
+        };
+
+        // --- Fonctions d'Interface ---
+
+        function sendMessage() {
+            const message = inputElement.value.trim();
+            if (socket.readyState === WebSocket.OPEN && message !== "") {
+                
+                // ÉTAPE CRUCIALE : Encapsuler le contenu dans un objet JSON stringifié
+                const payload = JSON.stringify({
+                    content: message
+                });
+
+                socket.send(payload); // Envoi du JSON au serveur Go
+                inputElement.value = ""; // Vider l'input
+            }
+        }
+
+        function displayMessage(sender, text, className) {
+            const msgBox = document.createElement("div");
+            msgBox.classList.add("message-box", className);
+            msgBox.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            messagesElement.appendChild(msgBox);
+            messagesElement.scrollTop = messagesElement.scrollHeight;
+        }
+
+        // Envoyer le message avec la touche Entrée
+        inputElement.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+
+</body>
+</html>
