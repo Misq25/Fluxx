@@ -23,7 +23,8 @@
     <button onclick="sendMessage()">Envoyer</button>
 
     <script>
-        const socket = new WebSocket("ws://localhost:8080/ws");
+        const RENDER_DOMAIN = "https://fluxx-90d6.onrender.com";
+        const socket = new WebSocket("wss://" + RENDER_DOMAIN + "/ws");
         const statusElement = document.getElementById("status");
         const messagesElement = document.getElementById("messages");
         const inputElement = document.getElementById("input");
