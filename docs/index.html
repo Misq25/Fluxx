@@ -2,111 +2,149 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Fluxx - Test WebSocket</title>
+    <title>Fluxx - Messenger</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        #messages { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; }
-        .message-box { padding: 8px; margin-bottom: 5px; border-radius: 5px; }
-        /* Style simple pour distinguer nos messages des messages reçus */
-        .sent { background-color: #d1e7dd; text-align: right; }
-        .received { background-color: #f8d7da; text-align: left; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #app { width: 100%; max-width: 500px; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        /* Écrans */
+        .screen { display: none; }
+        .active { display: flex; flex-direction: column; }
+
+        /* Login */
+        #login-screen { text-align: center; }
+        .btn-google { background: white; color: black; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-google:hover { background: #ddd; }
+
+        /* Chat */
+        #messages { border: 1px solid #333; height: 350px; overflow-y: scroll; padding: 10px; margin-bottom: 15px; background: #121212; border-radius: 8px; }
+        .message-box { padding: 8px 12px; margin-bottom: 8px; border-radius: 12px; max-width: 80%; font-size: 0.9em; }
+        .sent { background-color: #005c4b; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .received { background-color: #202c33; align-self: flex-start; border-bottom-left-radius: 2px; }
+        
+        .input-area { display: flex; gap: 10px; }
+        input { flex: 1; background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 6px; outline: none; }
     </style>
 </head>
 <body>
 
-    <h2>Fluxx - Test Chat WebSocket</h2>
-    <p>Statut : <span id="status" style="color: red;">Déconnecté</span></p>
+<div id="app">
+    <div id="login-screen" class="screen active">
+        <h2>Bienvenue sur Fluxx</h2>
+        <p>Connecte-toi pour commencer à chatter</p>
+        <button class="btn-google" onclick="login()">Se connecter avec Google</button>
+    </div>
 
-    <div id="messages"></div>
+    <div id="chat-screen" class="screen">
+        <div id="chat-header" style="margin-bottom: 10px; font-size: 0.8em; color: #888;"></div>
+        <div id="messages"></div>
+        <div class="input-area">
+            <input type="text" id="input" placeholder="Dire quelque chose...">
+            <button onclick="sendMessage()" style="background: #00a884; border: none; color: white; padding: 0 15px; border-radius: 6px; cursor: pointer;">Envoyer</button>
+        </div>
+        <button onclick="logout()" style="background: none; border: none; color: #ff4444; font-size: 0.7em; margin-top: 10px; cursor: pointer;">Déconnexion</button>
+    </div>
+</div>
 
-    <input type="text" id="input" placeholder="Tapez votre message ici..." style="width: 80%;">
-    <button onclick="sendMessage()">Envoyer</button>
+<script>
+    // --- CONFIGURATION ---
+    const SUPABASE_URL = "https://fluxx_db.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4enRya2h4aW9zamZpanZvZmViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2OTY5MjUsImV4cCI6MjA4MTI3MjkyNX0.o_izj1w0L-1o9Y7tq1nEraHo1ZrO0ToNKQbqu4NpggI"; // C'est safe en public si tes RLS sont ON
+    const GO_SERVER_URL = "http://localhost:8080";
+    const GO_WS_URL = "ws://localhost:8080/ws";
 
-    <script>
-        const RENDER_DOMAIN = "fluxx-90d6.onrender.com";
-        const socket = new WebSocket("wss://" + RENDER_DOMAIN + "/ws");
-        const statusElement = document.getElementById("status");
-        const messagesElement = document.getElementById("messages");
-        const inputElement = document.getElementById("input");
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let currentUser = null;
+    let socket = null;
 
-        // Stocker l'ID de cette session (pour différencier nos messages)
-        let mySessionID = null;
+    // --- GESTION AUTH ---
 
-        // --- Gestion des Événements WebSocket ---
-
-        socket.onopen = function(e) {
-            statusElement.textContent = "Connecté";
-            statusElement.style.color = "green";
-            displayMessage("Système", "Connecté au serveur Go ! 🎉", "received");
-        };
-
-        socket.onmessage = function(event) {
-            try {
-                // 1. Parser le JSON reçu
-                const message = JSON.parse(event.data);
-
-                // Pour la démo, on stocke l'ID unique que le serveur a généré lors du premier message
-                if (!mySessionID) {
-                    mySessionID = message.sender;
-                    console.log("Mon ID de session est : " + mySessionID);
-                }
-
-                // 2. Déterminer le style (Envoyé ou Reçu)
-                const isSent = message.sender === mySessionID;
-                const className = isSent ? "sent" : "received";
-                
-                // 3. Afficher
-                const senderDisplay = isSent ? "Moi" : `Utilisateur ${message.sender.substring(0, 4)}...`;
-                displayMessage(senderDisplay, message.content, className);
-
-            } catch (e) {
-                console.error("Erreur de parsing JSON:", e);
-                displayMessage("Erreur", "Format de message invalide reçu.", "received");
-            }
-        };
-
-        socket.onclose = function(event) {
-            // ... (gestion de la déconnexion inchangée)
-            statusElement.textContent = "Déconnecté";
-            statusElement.style.color = "red";
-        };
-
-        socket.onerror = function(error) {
-            console.error(`[error] ${error.message}`);
-            displayMessage("Erreur", "Une erreur est survenue.", "received");
-        };
-
-        // --- Fonctions d'Interface ---
-
-        function sendMessage() {
-            const message = inputElement.value.trim();
-            if (socket.readyState === WebSocket.OPEN && message !== "") {
-                
-                // ÉTAPE CRUCIALE : Encapsuler le contenu dans un objet JSON stringifié
-                const payload = JSON.stringify({
-                    content: message
-                });
-
-                socket.send(payload); // Envoi du JSON au serveur Go
-                inputElement.value = ""; // Vider l'input
-            }
-        }
-
-        function displayMessage(sender, text, className) {
-            const msgBox = document.createElement("div");
-            msgBox.classList.add("message-box", className);
-            msgBox.innerHTML = `<strong>${sender}:</strong> ${text}`;
-            messagesElement.appendChild(msgBox);
-            messagesElement.scrollTop = messagesElement.scrollHeight;
-        }
-
-        // Envoyer le message avec la touche Entrée
-        inputElement.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
+    async function login() {
+        await supabase.auth.signInWithOAuth({ 
+            provider: 'google',
+            options: { redirectTo: window.location.origin }
         });
-    </script>
+    }
 
+    async function logout() {
+        await supabase.auth.signOut();
+        location.reload();
+    }
+
+    // Détecter la session au chargement
+    supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session) {
+            currentUser = session.user;
+            showScreen('chat-screen');
+            document.getElementById('chat-header').textContent = `Connecté en tant que ${currentUser.email}`;
+            
+            // 1. Synchroniser le profil avec le serveur Go
+            syncProfile(session.user);
+            
+            // 2. Connecter le WebSocket
+            initWebSocket();
+        } else {
+            showScreen('login-screen');
+        }
+    });
+
+    async function syncProfile(user) {
+        const profile = {
+            id: user.id,
+            username: user.email.split('@')[0],
+            display_name: user.user_metadata.full_name,
+            avatar_url: user.user_metadata.avatar_url
+        };
+
+        try {
+            await fetch(`${GO_SERVER_URL}/api/sync-profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(profile)
+            });
+        } catch (e) {
+            console.error("Serveur Go hors ligne ou erreur CORS");
+        }
+    }
+
+    // --- GESTION WEBSOCKET ---
+
+    function initWebSocket() {
+        socket = new WebSocket(GO_WS_URL);
+        
+        socket.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            const isMe = msg.sender === currentUser.id;
+            displayMessage(isMe ? "Moi" : "Autre", msg.content, isMe ? 'sent' : 'received');
+        };
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('input');
+        if (input.value.trim() && socket) {
+            socket.send(JSON.stringify({ 
+                content: input.value,
+                sender: currentUser.id // On envoie notre ID Supabase
+            }));
+            input.value = '';
+        }
+    }
+
+    // --- UI HELPERS ---
+
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    function displayMessage(sender, text, className) {
+        const div = document.createElement('div');
+        div.classList.add('message-box', className);
+        div.innerHTML = `<strong>${sender}:</strong> ${text}`;
+        document.getElementById('messages').appendChild(div);
+        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    }
+</script>
 </body>
 </html>
