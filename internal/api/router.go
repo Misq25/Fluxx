@@ -25,5 +25,25 @@ func NewRouter(hub *websocket.Hub) http.Handler {
 		handlers.ServeWs(hub, w, r)
 	})
 
+	authHandler := NewAuthHandler(hub.GetStore()) // On récupère le store via le hub ou directement
+	r.HandleFunc("/api/sync-profile", authHandler.HandleSyncProfile)
+
 	return r
+}
+
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Autorise tout le monde pour le dev (on restreindra plus tard)
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+		// Si c'est une requête de "vérification" (Preflight), on répond OK direct
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

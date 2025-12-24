@@ -7,21 +7,17 @@ import (
 	_ "github.com/lib/pq" // Pilote PostgreSQL
 )
 
-// Store est la structure qui maintient la connexion à la BDD ouverte
 type Store struct {
 	db *sqlx.DB
 }
 
-// NewStore est la fonction qui établit la connexion
 func NewStore(dbURL string) (*Store, error) {
-	// sqlx.Connect ouvre la connexion en utilisant le driver "postgres" (lib/pq)
 	db, err := sqlx.Connect("postgres", dbURL)
 	if err != nil {
 		log.Printf("Erreur de connexion à la BDD: %v", err)
 		return nil, err
 	}
 
-	// S'assurer que la connexion est bien vivante
 	if err = db.Ping(); err != nil {
 		log.Printf("Ping de la BDD échoué: %v", err)
 		return nil, err
@@ -31,7 +27,6 @@ func NewStore(dbURL string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-// 🚨 NOUVELLE MÉTHODE : Close ferme la connexion à la base de données.
 func (s *Store) Close() {
 	if s.db != nil {
 		s.db.Close()
@@ -39,16 +34,35 @@ func (s *Store) Close() {
 	}
 }
 
-// 🚨 NOUVELLE MÉTHODE : SaveMessage enregistre un nouveau message dans la BDD.
-func (s *Store) SaveMessage(clientID string, content string) error {
-	// Requête SQL pour insérer les données. Supabase (PostgreSQL) gérera les IDs et timestamps.
-	query := `INSERT INTO messages (client_id, content) VALUES ($1, $2)`
+// --- PARTIE AUTH / PROFIL ---
 
-	_, err := s.db.Exec(query, clientID, content)
+// SyncUserProfile utilise ta struct Profile pour créer/modifier un utilisateur
+func (s *Store) SyncUserProfile(p Profile) error {
+	// Avec sqlx, on utilise ":" devant les noms pour qu'il mappe tout seul avec la struct
+	query := `
+		INSERT INTO profiles (id, username, display_name, avatar_url)
+		VALUES (:id, :username, :display_name, :avatar_url)
+		ON CONFLICT (id) DO UPDATE SET
+			display_name = EXCLUDED.display_name,
+			avatar_url = EXCLUDED.avatar_url,
+			updated_at = now();
+	`
 
+	// NamedExec est magique : il lit les tags `db:"..."` de ton models.go
+	_, err := s.db.NamedExec(query, p)
 	if err != nil {
-		log.Printf("Erreur SQL lors de l'insertion: %v", err)
+		log.Printf("Erreur lors de la synchro du profil %s: %v", p.Username, err)
 	}
+	return err
+}
 
+// --- PARTIE MESSAGES ---
+
+func (s *Store) SaveMessage(clientID string, content string) error {
+	query := `INSERT INTO messages (client_id, content) VALUES ($1, $2)`
+	_, err := s.db.Exec(query, clientID, content)
+	if err != nil {
+		log.Printf("Erreur SQL lors de l'insertion du message: %v", err)
+	}
 	return err
 }

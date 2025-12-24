@@ -9,51 +9,61 @@ import (
 	"fluxx/internal/store"
 	"fluxx/internal/websocket"
 
-	"github.com/joho/godotenv" // 👈 AJOUTE CET IMPORT
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	// --- Étape 0 : Charger le fichier .env ---
-	// Cette ligne lit le fichier .env à la racine et injecte les variables
-	err := godotenv.Load()
-	if err != nil {
-		// On met un Println et pas un Fatal car sur Render (en production),
-		// le fichier .env n'existe pas, les variables sont injectées directement.
-		log.Println("Note: Aucun fichier .env trouvé, utilisation des variables d'environnement système.")
-	}
+	// --- Étape 0 : Charger le fichier .env (Local uniquement) ---
+	_ = godotenv.Load() // On ignore l'erreur car Render gère ça en interne
 
-	// --- Étape 1 : Connexion à Supabase (PostgreSQL) ---
-
+	// --- Étape 1 : Connexion à Supabase ---
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		log.Fatal("Variable d'environnement DATABASE_URL manquante. Le serveur ne peut pas se connecter à la BDD.")
+		log.Fatal("Variable DATABASE_URL manquante.")
 	}
 
-	// 1.2. Établir la connexion à la base de données via le Store.
 	s, err := store.NewStore(dbURL)
 	if err != nil {
-		log.Fatalf("Impossible d'initialiser la connexion à Supabase: %v", err)
+		log.Fatalf("Erreur connexion BDD: %v", err)
 	}
-	log.Println("Connexion à la base de données Supabase réussie !") // Petit message de confort
-
+	log.Println("✅ Connexion Supabase réussie !")
 	defer s.Close()
 
-	// --- Étape 2 : Initialisation du Hub WebSocket ---
+	// --- Étape 2 : Initialisation du Hub ---
 	hub := websocket.NewHub(s)
 	go hub.Run()
 
-	// --- Étape 3 : Démarrage du Serveur HTTP ---
+	// --- Étape 3 : Router & Middlewares ---
 	r := api.NewRouter(hub)
 
+	// --- Étape 4 : Lancement ---
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	addr := ":" + port
-	log.Printf("Fluxx API starting on %s", addr)
+	log.Printf("🚀 Fluxx API lancée sur le port %s", port)
 
-	if err := http.ListenAndServe(addr, r); err != nil {
+	// 🚨 IMPORTANT : On enveloppe le router 'r' avec enableCORS
+	if err := http.ListenAndServe(":"+port, enableCORS(r)); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
+}
+
+// enableCORS est le garde du corps qui autorise ton HTML à parler au serveur
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// On autorise toutes les origines pour le moment (plus simple pour le dev)
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+		// Si c'est une requête de pré-vérification (OPTIONS), on répond OK tout de suite
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

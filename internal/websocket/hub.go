@@ -31,6 +31,10 @@ func NewHub(s *store.Store) *Hub {
 	}
 }
 
+func (h *Hub) GetStore() *store.Store {
+	return h.Store
+}
+
 // Run est la boucle principale qui écoute les canaux du Hub.
 func (h *Hub) Run() {
 	for {
