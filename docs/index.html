@@ -5,55 +5,209 @@
     <title>Fluxx - Messenger</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #app { width: 100%; max-width: 500px; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .screen { display: none; }
-        .active { display: flex; flex-direction: column; }
+        /* --- VARIABLES ET BASE --- */
+        :root {
+            --bg-dark: #1a1625;
+            --bg-panel: #2d283e;
+            --accent-gradient: linear-gradient(90deg, #d81b60 0%, #ff8a65 100%);
+            --text-main: #ffffff;
+            --text-dim: #b3b3b3;
+            --border-line: #000000;
+        }
+
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            background: var(--bg-dark); color: var(--text-main);
+            overflow: hidden;
+        }
+
+        /* --- ECRAN LOGIN (Maquette Branding) --- */
+        #login-screen {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #2d283e 0%, #1a1625 100%);
+        }
+
+        .login-container {
+            display: flex;
+            align-items: center;
+            gap: 60px;
+            max-width: 1000px;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: rgba(45, 40, 62, 0.4);
+            padding: 40px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .login-branding { text-align: left; }
+        .login-branding h1 { font-size: 6em; margin: 0; line-height: 0.8; letter-spacing: -2px; }
+        .login-branding p { 
+            font-size: 1.8em; margin-top: 10px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
+        }
+
+        /* --- INTERFACE CHAT (Maquette 3 Colonnes) --- */
+        #chat-screen {
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 60px 1fr;
+            grid-template-columns: 70px 1fr 280px;
+        }
+
+        header {
+            grid-column: 1 / 4;
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            font-weight: bold;
+            font-size: 1.4em;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        /* Barre Latérale (Amis Co / Switcher) */
+        .sidebar {
+            grid-row: 2;
+            background: var(--bg-dark);
+            border-right: 4px solid var(--border-line);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            gap: 20px;
+        }
+
+        .sidebar-item { font-size: 0.8em; font-weight: bold; text-align: center; cursor: pointer; }
+        .switcher { font-size: 1.5em; color: var(--text-dim); }
+
+        /* Zone Centrale (Conversation) */
+        .main-chat {
+            grid-row: 2;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .input-area {
+            height: 80px;
+            border-top: 4px solid var(--border-line);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 15px;
+        }
+
+        /* Zone Droite (Profil) */
+        .profile-panel {
+            grid-row: 2;
+            background: var(--bg-dark);
+            border-left: 4px solid var(--border-line);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .profile-header { text-align: center; border-bottom: 4px solid var(--border-line); padding-bottom: 20px; margin-bottom: 20px; }
+        .notification-zone { margin-top: auto; border-top: 4px solid var(--border-line); padding-top: 20px; font-size: 0.75em; color: var(--text-dim); }
+
+        /* --- STYLES INPUTS ET BOUTONS --- */
+        input {
+            background: var(--bg-panel); border: 2px solid transparent;
+            padding: 12px; border-radius: 12px; color: white; outline: none; transition: 0.3s;
+        }
+        input:focus { border-color: #ff8a65; }
+
+        .btn-primary { background: var(--accent-gradient); border: none; color: white; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .btn-google { background: white; color: black; border: none; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; }
         
-        /* Auth UI */
-        #login-screen { text-align: center; gap: 10px; }
-        .auth-toggle { background: none; border: none; color: #00a884; cursor: pointer; font-size: 0.8em; text-decoration: underline; margin-top: 5px; }
-        .btn-primary { background: #00a884; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn-google { background: white; color: black; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        
-        /* Chat UI */
-        #messages { border: 1px solid #333; height: 350px; overflow-y: auto; padding: 10px; margin-bottom: 15px; background: #121212; border-radius: 8px; display: flex; flex-direction: column; }
-        .message-box { padding: 8px 12px; margin-bottom: 8px; border-radius: 12px; max-width: 80%; font-size: 0.9em; color: white; line-height: 1.4; }
-        .sent { background-color: #005c4b; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .received { background-color: #202c33; align-self: flex-start; border-bottom-left-radius: 2px; }
-        
-        .input-area { display: flex; gap: 10px; }
-        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 6px; outline: none; }
+        .message-box { padding: 12px 16px; border-radius: 18px; max-width: 75%; line-height: 1.4; }
+        .sent { background: #4a3f6b; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .received { background: var(--bg-panel); align-self: flex-start; border-bottom-left-radius: 4px; }
+
         .hidden { display: none; }
+        .screen { display: none; }
+        .active { display: flex; }
     </style>
 </head>
 <body>
 
 <div id="app">
     <div id="login-screen" class="screen active">
-        <h2 id="auth-title">Fluxx - Connexion</h2>
-        <input type="text" id="username" placeholder="Pseudo (uniquement inscription)" class="hidden">
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="password" placeholder="Mot de passe">
-        <button id="auth-btn" class="btn-primary" onclick="handleAuth()">Se connecter</button>
-        
-        <p style="font-size: 0.8em; color: #888;">
-            <span id="toggle-msg">Pas encore de compte ?</span> 
-            <button class="auth-toggle" onclick="toggleAuth()">Créer un compte</button>
-        </p>
-        
-        <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0; width: 100%;">
-        <button class="btn-google" onclick="loginWithGoogle()">Continuer avec Google</button>
+        <div class="login-container">
+            <div class="login-card">
+                <h2 id="auth-title" style="margin:0">Connexion</h2>
+                <input type="text" id="username" placeholder="Ton Pseudo" class="hidden">
+                <input type="email" id="email" placeholder="Email">
+                <input type="password" id="password" placeholder="Mot de passe">
+                <button class="btn-primary" onclick="handleAuth()" id="auth-btn">Se connecter</button>
+                <button class="btn-google" onclick="loginWithGoogle()">Continuer avec Google</button>
+                <p style="font-size: 0.8em; cursor:pointer; text-align: center;" onclick="toggleAuth()" id="toggle-msg">Pas de compte ? Créer</p>
+            </div>
+            
+            <div class="login-branding">
+                <h1>FLUXX</h1>
+                <p>Exprime. Découvre. Grandis.</p>
+            </div>
+        </div>
     </div>
 
     <div id="chat-screen" class="screen">
-        <div id="chat-header" style="margin-bottom: 10px; font-size: 0.8em; color: #888; display: flex; align-items: center; gap: 10px;"></div>
-        <div id="messages"></div>
-        <div class="input-area">
-            <input type="text" id="input" placeholder="Dire quelque chose...">
-            <button onclick="sendMessage()" style="background: #00a884; border: none; color: white; padding: 0 15px; border-radius: 6px; cursor: pointer;">Envoyer</button>
+        <header>
+            <span style="font-size: 1.2em; margin-right: 15px;">LL</span> Maquette Interface Amis
+        </header>
+
+        <div class="sidebar">
+            <div class="sidebar-item">amis<br>co</div>
+            <div class="switcher">‹ ›</div>
+            <div class="sidebar-item" style="margin-top:20px">amis</div>
         </div>
-        <button onclick="logout()" style="background: none; border: none; color: #ff4444; font-size: 0.7em; margin-top: 10px; cursor: pointer;">Déconnexion</button>
+
+        <div class="main-chat">
+            <div id="messages"></div>
+            <div class="input-area">
+                <input type="text" id="input" placeholder="envois de message etc...">
+                <button onclick="sendMessage()" class="btn-primary" style="padding: 12px 25px;">Envoyer</button>
+            </div>
+        </div>
+
+        <div class="profile-panel">
+            <div class="profile-header">
+                <div style="font-size: 0.9em; color: var(--text-dim); margin-bottom: 15px;">Profil de la personne</div>
+                <div id="user-info"></div>
+            </div>
+            
+            <div class="notification-zone">
+                Derniere Notification Fluxx<br>
+                Serv amis etc...
+            </div>
+            <button onclick="logout()" style="background:none; border:none; color:#ff4444; cursor:pointer; margin-top:15px; font-size: 0.8em;">Déconnexion</button>
+        </div>
     </div>
 </div>
 
@@ -64,42 +218,27 @@
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4enRya2h4aW9zamZpanZvZmViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2OTY5MjUsImV4cCI6MjA4MTI3MjkyNX0.o_izj1w0L-1o9Y7tq1nEraHo1ZrO0ToNKQbqu4NpggI";
 
     const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    
     let currentUser = null;
     let socket = null;
     let isSignup = false;
 
-    // --- LOGIQUE D'INTERFACE ---
-
+    // --- INTERFACE ---
     function toggleAuth() {
         isSignup = !isSignup;
         document.getElementById('username').classList.toggle('hidden');
-        document.getElementById('auth-title').textContent = isSignup ? "Fluxx - Inscription" : "Fluxx - Connexion";
-        document.getElementById('auth-btn').textContent = isSignup ? "Créer mon compte" : "Se connecter";
-        document.getElementById('toggle-msg').textContent = isSignup ? "Déjà un compte ?" : "Pas encore de compte ?";
+        document.getElementById('auth-title').textContent = isSignup ? "Inscription" : "Connexion";
+        document.getElementById('auth-btn').textContent = isSignup ? "C'est parti" : "Se connecter";
+        document.getElementById('toggle-msg').textContent = isSignup ? "Déjà un compte ? Login" : "Pas de compte ? Créer";
     }
 
-    // --- GESTION AUTH ---
-
+    // --- AUTHENTIFICATION ---
     async function handleAuth() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
         const username = document.getElementById('username').value;
-
         if (isSignup) {
-            if (!username) return alert("Choisis un pseudo !");
-            const { error } = await _supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: { 
-                        full_name: username,
-                        avatar_url: `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${username}`
-                    }
-                }
-            });
-            if (error) alert(error.message);
-            else alert("Inscription réussie ! Connecte-toi maintenant.");
+            const { error } = await _supabase.auth.signUp({ email, password, options: { data: { full_name: username, avatar_url: `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${username}` }}});
+            if (error) alert(error.message); else alert("Vérifie tes emails !");
         } else {
             const { error } = await _supabase.auth.signInWithPassword({ email, password });
             if (error) alert(error.message);
@@ -107,90 +246,47 @@
     }
 
     async function loginWithGoogle() {
-        const SITE_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
-            ? window.location.origin 
-            : "https://misq25.github.io/Fluxx/"; // <--- METS TON URL DE SITE ICI
-
-        await _supabase.auth.signInWithOAuth({ 
-            provider: 'google',
-            options: { redirectTo: SITE_URL }
-        });
+        const SITE_URL = window.location.hostname.includes("github.io") ? "https://misq25.github.io/Fluxx/" : window.location.origin;
+        await _supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: SITE_URL }});
     }
 
-    async function logout() {
-        await _supabase.auth.signOut();
-        location.reload();
-    }
+    async function logout() { await _supabase.auth.signOut(); location.reload(); }
 
+    // --- LOGIQUE CHAT ---
     _supabase.auth.onAuthStateChange(async (event, session) => {
         if (session) {
             currentUser = session.user;
             showScreen('chat-screen');
-            
             const name = currentUser.user_metadata.full_name || currentUser.email.split('@')[0];
-            const avatar = currentUser.user_metadata.avatar_url || "";
+            const avatar = currentUser.user_metadata.avatar_url || `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${name}`;
             
-            document.getElementById('chat-header').innerHTML = `
-                <img src="${avatar}" style="width:24px; border-radius:50%"> 
-                <span>Connecté : <strong>${name}</strong></span>`;
-            
-            syncProfile(currentUser);
+            document.getElementById('user-info').innerHTML = `
+                <img src="${avatar}" style="width:80px; border-radius:50%; border: 3px solid #ff8a65; margin-bottom:10px;">
+                <div style="font-weight:bold; font-size:1.1em">${name}</div>
+            `;
             initWebSocket();
         } else {
             showScreen('login-screen');
         }
     });
 
-    async function syncProfile(user) {
-        const profile = {
-            id: user.id,
-            username: user.email.split('@')[0],
-            display_name: user.user_metadata.full_name || user.email.split('@')[0],
-            avatar_url: user.user_metadata.avatar_url || ""
-        };
-
-        try {
-            await fetch(`${PROD_URL}/api/sync-profile`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(profile)
-            });
-        } catch (e) { console.error("API Go non joignable"); }
-    }
-
-    // --- GESTION WEBSOCKET ---
-
     function initWebSocket() {
-        // Sécurité : évite les connexions multiples
-        if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
-
+        if (socket) return;
         const wsUrl = PROD_URL.replace("https://", "wss://").replace("http://", "ws://") + "/ws";
         socket = new WebSocket(wsUrl);
-        
         socket.onmessage = (event) => {
             const msg = JSON.parse(event.data);
-            const isMe = msg.sender === currentUser.id;
-            displayMessage(isMe ? "Moi" : "Autre", msg.content, isMe ? 'sent' : 'received');
-        };
-
-        socket.onclose = () => {
-            console.log("WebSocket fermé. Reconnexion...");
-            setTimeout(initWebSocket, 3000);
+            displayMessage(msg.sender === currentUser.id ? "Moi" : "Autre", msg.content, msg.sender === currentUser.id ? 'sent' : 'received');
         };
     }
 
     function sendMessage() {
         const input = document.getElementById('input');
         if (input.value.trim() && socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ 
-                content: input.value,
-                sender: currentUser.id 
-            }));
+            socket.send(JSON.stringify({ content: input.value, sender: currentUser.id }));
             input.value = '';
         }
     }
-
-    // --- UI HELPERS ---
 
     function showScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -200,7 +296,7 @@
     function displayMessage(sender, text, className) {
         const div = document.createElement('div');
         div.classList.add('message-box', className);
-        div.innerHTML = `<strong>${sender}:</strong> ${text}`;
+        div.innerHTML = `<div style="font-size:0.7em; opacity:0.6; margin-bottom:4px">${sender}</div>${text}`;
         const container = document.getElementById('messages');
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
