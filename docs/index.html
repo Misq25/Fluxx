@@ -107,9 +107,13 @@
     }
 
     async function loginWithGoogle() {
+        const SITE_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
+            ? window.location.origin 
+            : "https://misq25.github.io/Fluxx/"; // <--- METS TON URL DE SITE ICI
+
         await _supabase.auth.signInWithOAuth({ 
             provider: 'google',
-            options: { redirectTo: window.location.origin }
+            options: { redirectTo: SITE_URL }
         });
     }
 
