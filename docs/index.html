@@ -9,31 +9,45 @@
         #app { width: 100%; max-width: 500px; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .screen { display: none; }
         .active { display: flex; flex-direction: column; }
-        #login-screen { text-align: center; gap: 15px; }
+        
+        /* Auth UI */
+        #login-screen { text-align: center; gap: 10px; }
+        .auth-toggle { background: none; border: none; color: #00a884; cursor: pointer; font-size: 0.8em; text-decoration: underline; margin-top: 5px; }
         .btn-primary { background: #00a884; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .btn-google { background: white; color: black; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        
+        /* Chat UI */
         #messages { border: 1px solid #333; height: 350px; overflow-y: auto; padding: 10px; margin-bottom: 15px; background: #121212; border-radius: 8px; display: flex; flex-direction: column; }
-        .message-box { padding: 8px 12px; margin-bottom: 8px; border-radius: 12px; max-width: 80%; font-size: 0.9em; color: white; }
-        .sent { background-color: #005c4b; align-self: flex-end; }
-        .received { background-color: #202c33; align-self: flex-start; }
+        .message-box { padding: 8px 12px; margin-bottom: 8px; border-radius: 12px; max-width: 80%; font-size: 0.9em; color: white; line-height: 1.4; }
+        .sent { background-color: #005c4b; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .received { background-color: #202c33; align-self: flex-start; border-bottom-left-radius: 2px; }
+        
         .input-area { display: flex; gap: 10px; }
-        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 6px; outline: none; margin-bottom: 5px; }
+        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 6px; outline: none; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div id="app">
     <div id="login-screen" class="screen active">
-        <h2>Fluxx</h2>
+        <h2 id="auth-title">Fluxx - Connexion</h2>
+        <input type="text" id="username" placeholder="Pseudo (uniquement inscription)" class="hidden">
         <input type="email" id="email" placeholder="Email">
         <input type="password" id="password" placeholder="Mot de passe">
-        <button class="btn-primary" onclick="loginWithEmail()">Se connecter</button>
-        <p style="font-size: 0.8em; color: #888;">ou</p>
-        <button class="btn-google" onclick="loginWithGoogle()">Se connecter avec Google</button>
+        <button id="auth-btn" class="btn-primary" onclick="handleAuth()">Se connecter</button>
+        
+        <p style="font-size: 0.8em; color: #888;">
+            <span id="toggle-msg">Pas encore de compte ?</span> 
+            <button class="auth-toggle" onclick="toggleAuth()">Créer un compte</button>
+        </p>
+        
+        <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0; width: 100%;">
+        <button class="btn-google" onclick="loginWithGoogle()">Continuer avec Google</button>
     </div>
 
     <div id="chat-screen" class="screen">
-        <div id="chat-header" style="margin-bottom: 10px; font-size: 0.8em; color: #888;"></div>
+        <div id="chat-header" style="margin-bottom: 10px; font-size: 0.8em; color: #888; display: flex; align-items: center; gap: 10px;"></div>
         <div id="messages"></div>
         <div class="input-area">
             <input type="text" id="input" placeholder="Dire quelque chose...">
@@ -45,24 +59,51 @@
 
 <script>
     // --- CONFIGURATION ---
-    // REMPLACE l'URL ci-dessous par ton URL Render (ex: https://fluxx-api.onrender.com)
     const PROD_URL = "https://fluxx-90d6.onrender.com"; 
     const SUPABASE_URL = "https://kxztrkhxiosjfijvofeb.supabase.co"; 
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4enRya2h4aW9zamZpanZvZmViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2OTY5MjUsImV4cCI6MjA4MTI3MjkyNX0.o_izj1w0L-1o9Y7tq1nEraHo1ZrO0ToNKQbqu4NpggI";
 
-    // Correction ici : on utilise l'objet global fourni par le CDN
     const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
     let currentUser = null;
     let socket = null;
+    let isSignup = false;
+
+    // --- LOGIQUE D'INTERFACE ---
+
+    function toggleAuth() {
+        isSignup = !isSignup;
+        document.getElementById('username').classList.toggle('hidden');
+        document.getElementById('auth-title').textContent = isSignup ? "Fluxx - Inscription" : "Fluxx - Connexion";
+        document.getElementById('auth-btn').textContent = isSignup ? "Créer mon compte" : "Se connecter";
+        document.getElementById('toggle-msg').textContent = isSignup ? "Déjà un compte ?" : "Pas encore de compte ?";
+    }
 
     // --- GESTION AUTH ---
 
-    async function loginWithEmail() {
+    async function handleAuth() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const { error } = await _supabase.auth.signInWithPassword({ email, password });
-        if (error) alert(error.message);
+        const username = document.getElementById('username').value;
+
+        if (isSignup) {
+            if (!username) return alert("Choisis un pseudo !");
+            const { error } = await _supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: { 
+                        full_name: username,
+                        avatar_url: `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${username}`
+                    }
+                }
+            });
+            if (error) alert(error.message);
+            else alert("Inscription réussie ! Connecte-toi maintenant.");
+        } else {
+            const { error } = await _supabase.auth.signInWithPassword({ email, password });
+            if (error) alert(error.message);
+        }
     }
 
     async function loginWithGoogle() {
@@ -81,8 +122,15 @@
         if (session) {
             currentUser = session.user;
             showScreen('chat-screen');
-            document.getElementById('chat-header').textContent = `Connecté : ${currentUser.email}`;
-            syncProfile(session.user);
+            
+            const name = currentUser.user_metadata.full_name || currentUser.email.split('@')[0];
+            const avatar = currentUser.user_metadata.avatar_url || "";
+            
+            document.getElementById('chat-header').innerHTML = `
+                <img src="${avatar}" style="width:24px; border-radius:50%"> 
+                <span>Connecté : <strong>${name}</strong></span>`;
+            
+            syncProfile(currentUser);
             initWebSocket();
         } else {
             showScreen('login-screen');
@@ -103,14 +151,16 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(profile)
             });
-        } catch (e) { console.error("API hors ligne"); }
+        } catch (e) { console.error("API Go non joignable"); }
     }
 
     // --- GESTION WEBSOCKET ---
 
     function initWebSocket() {
-        // On remplace http par ws et on utilise l'URL de prod
-        const wsUrl = PROD_URL.replace("http", "ws") + "/ws";
+        // Sécurité : évite les connexions multiples
+        if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
+
+        const wsUrl = PROD_URL.replace("https://", "wss://").replace("http://", "ws://") + "/ws";
         socket = new WebSocket(wsUrl);
         
         socket.onmessage = (event) => {
@@ -119,7 +169,10 @@
             displayMessage(isMe ? "Moi" : "Autre", msg.content, isMe ? 'sent' : 'received');
         };
 
-        socket.onclose = () => setTimeout(initWebSocket, 3000); // Reconnexion auto
+        socket.onclose = () => {
+            console.log("WebSocket fermé. Reconnexion...");
+            setTimeout(initWebSocket, 3000);
+        };
     }
 
     function sendMessage() {
@@ -132,6 +185,8 @@
             input.value = '';
         }
     }
+
+    // --- UI HELPERS ---
 
     function showScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
